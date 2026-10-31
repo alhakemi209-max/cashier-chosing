@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>إقفال صناديق الكاشير</title>
+<meta name="theme-color" content="#1d3a5f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="إقفال الصناديق">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  html,body{margin:0;height:100%;background:#eef2f7;overscroll-behavior:none}
+  body{font-family:Tahoma,"Segoe UI",Arial,sans-serif;color:#1d2b3a}
+  #app{position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#eef2f7}
+  .cover{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#eef2f7;text-align:center;padding:24px;box-sizing:border-box;transition:opacity .25s}
+  .cover img{width:88px;height:88px;border-radius:22px;box-shadow:0 6px 22px rgba(29,58,95,.22)}
+  .cover h1{font-size:19px;margin:6px 0 0}
+  .cover p{margin:0;color:#5b6b7f;font-size:14px;line-height:1.8;max-width:320px}
+  .spin{width:26px;height:26px;border:3px solid #cfd9e5;border-top-color:#1d3a5f;border-radius:50%;animation:s 0.9s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .cover button{font:700 15px Tahoma,Arial,sans-serif;background:#1d3a5f;color:#fff;border:0;border-radius:12px;padding:12px 26px;cursor:pointer}
+  .hide{opacity:0;pointer-events:none}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<iframe id="app" title="إقفال صناديق الكاشير" allow="clipboard-write; clipboard-read; web-share; fullscreen" hidden></iframe>
+<div class="cover" id="splash">
+  <img src="icon-192.png" alt="">
+  <h1>إقفال صناديق الكاشير</h1>
+  <div class="spin" id="spin"></div>
+  <p id="msg">جارٍ فتح النظام…</p>
+  <button id="retry" hidden>إعادة المحاولة</button>
+</div>
+<script>
+(function () {
+  var KEY = "app-link", frame = document.getElementById("app"), splash = document.getElementById("splash"),
+      msg = document.getElementById("msg"), spin = document.getElementById("spin"), retry = document.getElementById("retry"),
+      current = "", timer = 0;
+  function saved() { try { return localStorage.getItem(KEY) || ""; } catch (e) { return ""; } }
+  function save(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+  function valid(u) { return /^https:\/\/script\.google\.com\/(a\/[^\/]+\/)?macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/.test(u); }
+  function show(text, canRetry) {
+    splash.classList.remove("hide"); spin.hidden = !!canRetry || canRetry === null; msg.innerHTML = text; retry.hidden = !canRetry;
+  }
+  function open(u) {
+    if (!u) return;
+    if (!navigator.onLine) { show("لا يوجد اتصال بالإنترنت.<br>تأكد من الاتصال ثم اضغط إعادة المحاولة.", true); return; }
+    var q = location.search && /[?&]n=/.test(location.search) ? location.search : "";
+    current = u; show("جارٍ فتح النظام…", false); frame.hidden = false;
+    clearTimeout(timer);
+    timer = setTimeout(function () { show("الاتصال بطيء، النظام ما زال يُحمَّل…<br>انتظر قليلاً أو اضغط إعادة المحاولة.", true); }, 25000);
+    frame.src = u + q;
+  }
+  frame.addEventListener("load", function () { if (!frame.src) return; clearTimeout(timer); splash.classList.add("hide"); });
+  retry.addEventListener("click", function () { var u = current || saved(); if (valid(u)) open(u); else location.reload(); });
+  window.addEventListener("online", function () { if (!splash.classList.contains("hide")) open(current || saved()); });
+  window.addEventListener("offline", function () { show("انقطع الاتصال بالإنترنت.<br>بيرجع النظام تلقائياً أول ما يرجع الاتصال.", null); spin.hidden = false; });
+
+  // the system link lives in link.txt so it can be changed from GitHub without touching this page
+  var first = saved();
+  if (valid(first)) open(first);
+  fetch("link.txt", { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (t) {
+    var m = String(t || "").match(/https:\/\/script\.google\.com\/\S+?\/exec(?=$|[\s"'<>])/), u = m ? m[0] : "";
+    if (!valid(u)) {
+      if (!valid(first)) show("لم يُضبط رابط النظام بعد.<br>افتح ملف <b>link.txt</b> في GitHub والصق فيه رابط النظام الذي ينتهي بـ <b dir=\"ltr\">/exec</b>.", null);
+      return;
+    }
+    if (u !== first) { save(u); open(u); }
+  }).catch(function () { if (!valid(first)) show("تعذّر الاتصال.<br>تأكد من الإنترنت ثم اضغط إعادة المحاولة.", true); });
+
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+})();
+</script>
+</body>
+</html>
